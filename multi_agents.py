@@ -3,39 +3,38 @@ warnings.filterwarnings("ignore")
 
 import operator
 import os
-from typing import Annotated, Literal, TypedDict, Sequence
-from langgraph.graph import END, START, StateGraph, MessagesState
-from langchain_groq import ChatGroq
-from langchain_core.messages import BaseMessage
+from typing import Annotated, Sequence, TypedDict
+from langgraph.graph import END, StateGraph
 from langchain_openai import ChatOpenAI
-from langchain_community.embeddings import HuggingFaceInstructEmbeddings
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.memory import ConversationBufferMemory
-from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
-from langchain_community.vectorstores import Chroma
-from langchain.chains import ConversationalRetrievalChain
+from langchain_community.document_loaders import PyPDFLoader
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Initialize LLM
-llm = ChatGroq(model="llama3-70b-8192")
+llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
 
 # TypedDict for AgentState
 class AgentState(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], operator.add]
+    messages: Annotated[Sequence[str], operator.add]
+    resume_path: str
+    job_description: str
+    scoring_weights: dict
 
 
 
 # ----------------- Resume Name Agent -----------------
 def agent(agentState: AgentState):
     try:
-        pdf_file = "Resume.pdf"
+        pdf_file = agentState["resume_path"]
         data = PyPDFLoader(pdf_file).load()
         resume_text = " ".join([page.page_content for page in data])
         response = llm.invoke(
-            f"Your task is to extract the candidate name and contact details from the resume data. "
-            f"Only respond with the candidate name, contact details and nothing else. Resume Data: {resume_text}"
+            f"Your task is to extract candidate identity details from the resume data.\n"
+            f"Return output in exactly this format:\n"
+            f"Candidate Name: <name>\n"
+            f"Contact Details: <email | phone | linkedin if available>\n"
+            f"Resume Data: {resume_text}"
         )
         answer = response.content
     except Exception as ex:
@@ -46,8 +45,7 @@ def agent(agentState: AgentState):
 # ----------------- Job Description Agent -----------------
 def JD_agent(agentState: AgentState):
     try:
-        with open("JD.txt", "r") as f:
-            jd_data = f.read()
+        jd_data = agentState["job_description"]
         response = llm.invoke(
             f"Your task is to extract the exact job requirements from the given data. "
             f"Only respond with the job requirements and nothing else. Data: {jd_data}"
@@ -61,7 +59,7 @@ def JD_agent(agentState: AgentState):
 # ----------------- Red Flag Detection Agent -----------------
 def redflag_agent(agentState: AgentState):
     try:
-        pdf_file = "Resume.pdf"
+        pdf_file = agentState["resume_path"]
         data = PyPDFLoader(pdf_file).load()
         resume_text = " ".join([page.page_content for page in data])
 
@@ -97,11 +95,21 @@ def redflag_agent(agentState: AgentState):
 # ----------------- Recruit Agent (Evaluation) -----------------
 def recruit_agent(agentState: AgentState):
     try:
-        pdf_file = "Resume.pdf"
+        pdf_file = agentState["resume_path"]
         data = PyPDFLoader(pdf_file).load()
         resume_text = " ".join([page.page_content for page in data])
-        messages = agentState['messages']
-        jd_data = str(messages[-2]) + " " + str(messages[-1])
+        messages = agentState["messages"]
+        derived_context = " ".join([str(m) for m in messages[-2:]]) if messages else ""
+        jd_data = (
+            f"{agentState['job_description']}\n\n"
+            f"Additional extracted context from other agents:\n{derived_context}"
+        )
+        weights = agentState["scoring_weights"]
+
+        skills_weight = int(weights.get("skills", 30))
+        experience_weight = int(weights.get("experience", 50))
+        education_weight = int(weights.get("education", 10))
+        extras_weight = int(weights.get("extras", 10))
 
         prompt = f"""
         You are a Recruitment AI Assistant.
@@ -109,17 +117,17 @@ def recruit_agent(agentState: AgentState):
         Your task is to evaluate how well a candidate’s resume matches a given job description and assign a score out of 100 based on the criteria below.
 
         Scoring Criteria:
-        - **Skills Match: 30 points**
-        - **Experience Match: 50 points**
+        - **Skills Match: {skills_weight} points**
+        - **Experience Match: {experience_weight} points**
             - ⚠️ Do NOT award experience points for roles unrelated to the job description.
             - For freshers:
                 - Evaluate based on relevant internships, academic projects, or personal/portfolio work that aligns with the job.
             - For experienced candidates:
-                - 0–30 pts: Award based on **years of relevant experience** (e.g., 10 pts per relevant year).
-                - 0–20 pts: Award based on **quality, relevance, and impact** of work (e.g., problem-solving, outcomes, tools used).
-        - **Education Match: 10 points**
+                - 0–{round(experience_weight * 0.6)} pts: Award based on **years of relevant experience**.
+                - 0–{experience_weight - round(experience_weight * 0.6)} pts: Award based on **quality, relevance, and impact** of work.
+        - **Education Match: {education_weight} points**
             - ⚠️ If the education does NOT match the required fields (e.g., Computer Science, Data Science, AI, or related fields), assign **0 points**, regardless of degree level.
-        - **Extras (Certifications, Awards, Side Projects): 10 points**
+        - **Extras (Certifications, Awards, Side Projects): {extras_weight} points**
 
         Instructions:
         - Extract and compare the candidate’s **skills**, **experience**, **education**, and **additional qualifications** to the job description.
@@ -128,7 +136,7 @@ def recruit_agent(agentState: AgentState):
 
         After evaluation, return:
         1. **Total score (out of 100)**
-        2. **Score breakdown by category** (e.g., Skills: 24/30, Experience: 32/50)
+        2. **Score breakdown by category** (e.g., Skills: 24/{skills_weight}, Experience: 32/{experience_weight})
         3. **A short summary** (3–4 lines) covering major strengths and missing areas.
         4. **A final recommendation**, based on these rules:
             - If the candidate scores **above 75** and meets the key job requirements:
@@ -139,6 +147,8 @@ def recruit_agent(agentState: AgentState):
             - If the candidate scores **below 50**:
                 - Say: **❌ I do not recommend this candidate for the job.**
                 - Follow with a reason based on the biggest gaps (skills, experience, or education).
+
+        5. End your response with: **TOTAL_SCORE: <numeric_value_out_of_100>**
 
         Resume Data:
         {resume_text}
@@ -155,3 +165,20 @@ def recruit_agent(agentState: AgentState):
     except Exception as ex:
         answer = f"Error in recruit agent: {ex}"
     return {"messages": [answer]}
+
+
+def build_workflow():
+    workflow = StateGraph(AgentState)
+    workflow.add_node("Resume_agent", agent)
+    workflow.add_node("JD_agent", JD_agent)
+    workflow.add_node("Redflag_agent", redflag_agent)
+    workflow.add_node("Recruiter_agent", recruit_agent)
+
+    workflow.set_entry_point("Resume_agent")
+    workflow.add_edge("Resume_agent", "JD_agent")
+    workflow.add_edge("Resume_agent", "Redflag_agent")
+    workflow.add_edge("JD_agent", "Recruiter_agent")
+    workflow.add_edge("Redflag_agent", "Recruiter_agent")
+    workflow.add_edge("Recruiter_agent", END)
+
+    return workflow.compile()

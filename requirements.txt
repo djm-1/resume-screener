@@ -1,0 +1,9 @@
+streamlit==1.57.0
+langgraph==1.2.0
+langchain-openai==1.2.1
+langchain-community==0.4.1
+python-dotenv==1.2.1
+pypdf==6.11.0
+streamlit-agraph==0.0.45
+pandas==2.2.3
+Pillow==12.2.0

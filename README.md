@@ -3,22 +3,28 @@
 
 # AI-Powered Resume Matching App
 
-This is a **Streamlit-based application** that leverages a powerful **AI multi-agent workflow** to intelligently **match resumes with job descriptions**. It utilizes modern LLM frameworks like **LangChain**, **LangGraph**, and **Llama 3** (open-source via **Groq**).
+This is a **Streamlit-based application** that leverages a powerful **AI multi-agent workflow** to intelligently **match resumes with job descriptions**. It uses **LangChain**, **LangGraph**, and **OpenAI** models.
 
 ---
 
 ## Key Features
 
-* Upload a **resume (PDF)** and a **job description (TXT or plain text)**.
-* Click on **"Match Resume"** to start the AI workflow.
+* Upload **multiple resumes (PDF)** at once and a **job description (TXT or plain text)**.
+* Configure scoring weights using sliders:
+  * Skills
+  * Experience
+  * Education
+  * Extras (certifications/projects/awards)
+* Click on **"Match Resumes"** to run batch analysis.
 * The app:
 
   * Displays a **LangGraph workflow diagram** showing connected agents (nodes and edges).
-  * Executes the AI workflow:
+  * Executes the AI workflow for each uploaded resume:
 
     * Shows **individual outputs** from each agent.
-    * Provides a **final verdict** with a **match score**.
+    * Provides a **final verdict** with a **match score out of 100**.
     * Delivers a **detailed explanation** of the decision.
+  * Produces a **ranked candidate table** by total score.
 
 ---
 
@@ -26,11 +32,12 @@ This is a **Streamlit-based application** that leverages a powerful **AI multi-a
 
 The final **Recruiter Agent** evaluates the resume and job description, assigning a **match score out of 100** based on:
 
-* Resume content
-* Job description alignment
-* External LinkedIn profile validation
+* Skills match
+* Experience match
+* Education match
+* Extras (certifications, awards, side projects)
 
-> This score helps recruiters prioritize candidates efficiently.
+> Recruiters can tune category weights in the UI to match role-specific priorities.
 
 ---
 
@@ -71,7 +78,7 @@ Here’s an overview of the agents involved and their roles in the system:
 * **Python**
 * **Streamlit**
 * **LangChain + LangGraph**
-* **Llama 3 (via Groq API)**
+* **OpenAI API (via langchain-openai)**
 * **Hugging Face Instruct Embeddings**
 * **Chroma DB (vector store)**
 * **PyPDFLoader**
@@ -86,15 +93,30 @@ The app dynamically generates a **LangGraph workflow diagram**, visually explain
 
 ## Example Use Case
 
-1. Upload a candidate’s **resume (PDF)**.
-2. Upload or paste the **job description (TXT)**.
-3. Click **"Match Resume"**.
+1. Upload one or more candidate **resumes (PDF)**.
+2. Upload or paste the **job description (TXT/text)**.
+3. Adjust scoring sliders if needed.
+4. Click **"Match Resumes"**.
 4. Instantly get:
 
    * Agent workflow diagram
-   * Outputs from each agent
-   * **Final match score**
+   * Per-candidate outputs from each agent
+   * **Final match score** per candidate
+   * **Ranked candidates table**
    * Recruiter's **reasoned verdict**
+
+---
+
+## Environment Setup
+
+Create/update `.env` with your OpenAI key:
+
+```env
+OPENAI_API_KEY="your_openai_api_key"
+OPENAI_MODEL="gpt-4o-mini"
+```
+
+`OPENAI_MODEL` is optional; default is `gpt-4o-mini`.
 
 ---
 
