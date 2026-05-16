@@ -1,10 +1,17 @@
 import warnings
 warnings.filterwarnings("ignore")
 
-import operator
 import os
-from typing import Annotated, Sequence, TypedDict
-from langgraph.graph import END, StateGraph
+from typing import Sequence, TypedDict
+
+try:
+    from langgraph.graph import END, StateGraph
+    HAS_LANGGRAPH = True
+except Exception:
+    END = "END"
+    StateGraph = None
+    HAS_LANGGRAPH = False
+
 from langchain_openai import ChatOpenAI
 from langchain_community.document_loaders import PyPDFLoader
 from dotenv import load_dotenv
@@ -16,7 +23,7 @@ llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
 
 # TypedDict for AgentState
 class AgentState(TypedDict):
-    messages: Annotated[Sequence[str], operator.add]
+    messages: Sequence[str]
     resume_path: str
     job_description: str
     scoring_weights: dict
@@ -168,6 +175,9 @@ def recruit_agent(agentState: AgentState):
 
 
 def build_workflow():
+    if not HAS_LANGGRAPH:
+        return SimpleWorkflow()
+
     workflow = StateGraph(AgentState)
     workflow.add_node("Resume_agent", agent)
     workflow.add_node("JD_agent", JD_agent)
@@ -182,3 +192,28 @@ def build_workflow():
     workflow.add_edge("Recruiter_agent", END)
 
     return workflow.compile()
+
+
+class SimpleWorkflow:
+    """Fallback workflow used when langgraph is unavailable."""
+
+    def stream(self, inputs: dict):
+        state = {
+            "messages": list(inputs.get("messages", [])),
+            "resume_path": inputs.get("resume_path", ""),
+            "job_description": inputs.get("job_description", ""),
+            "scoring_weights": inputs.get("scoring_weights", {}),
+        }
+
+        execution_order = [
+            ("Resume_agent", agent),
+            ("JD_agent", JD_agent),
+            ("Redflag_agent", redflag_agent),
+            ("Recruiter_agent", recruit_agent),
+        ]
+
+        for node_name, node_fn in execution_order:
+            output = node_fn(state)
+            node_messages = output.get("messages", [])
+            state["messages"] = list(state.get("messages", [])) + list(node_messages)
+            yield {node_name: {"messages": node_messages}}
