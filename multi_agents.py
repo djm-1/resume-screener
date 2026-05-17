@@ -2,7 +2,8 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import os
-from typing import Sequence, TypedDict
+import operator
+from typing import Annotated, TypedDict
 
 try:
     from langgraph.graph import END, StateGraph
@@ -23,7 +24,7 @@ llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
 
 # TypedDict for AgentState
 class AgentState(TypedDict):
-    messages: Sequence[str]
+    messages: Annotated[list[str], operator.add]
     resume_path: str
     job_description: str
     scoring_weights: dict
