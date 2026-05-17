@@ -86,7 +86,9 @@ def parse_score_breakdown(text: str, fallback_weights: dict):
 
 def parse_summary(text: str):
     summary_match = re.search(
-        r"Summary\s*:\s*(.+?)(?:\n\s*Recommendation\s*:|\n\s*TOTAL_SCORE\s*:|$)",
+        r"(?:^|\n)\s*(?:\d+\.\s*)?(?:[#>*\-]\s*)*\**Summary\**\s*:?\s*(.+?)"
+        r"(?=\n\s*(?:\d+\.\s*)?(?:[#>*\-]\s*)*\**Recommendation\**\b|"
+        r"\n\s*(?:\d+\.\s*)?(?:[#>*\-]\s*)*\**TOTAL_SCORE\**\b|$)",
         text,
         re.IGNORECASE | re.DOTALL,
     )
@@ -97,7 +99,8 @@ def parse_summary(text: str):
 
 def parse_recommendation(text: str):
     recommendation_match = re.search(
-        r"Recommendation\s*:\s*(.+?)(?:\n\s*TOTAL_SCORE\s*:|$)",
+        r"(?:^|\n)\s*(?:\d+\.\s*)?(?:[#>*\-]\s*)*\**Recommendation\**\s*:?\s*(.+?)"
+        r"(?=\n\s*(?:\d+\.\s*)?(?:[#>*\-]\s*)*\**TOTAL_SCORE\**\b|$)",
         text,
         re.IGNORECASE | re.DOTALL,
     )
@@ -575,6 +578,11 @@ def main():
         kpi1.metric("Resumes Processed", len(candidate_results))
         kpi2.metric("Average Score", f"{valid_scores.mean():.1f}" if not valid_scores.empty else "N/A")
         kpi3.metric("Top Candidate", top_candidate)
+        st.caption(
+            "ℹ️ Top Candidate is the highest scorer in this uploaded batch (relative rank). "
+            "Recommendation is an absolute decision from the Recruiter Agent based on score thresholds "
+            "and job-fit checks, so a top candidate can still be marked not recommended."
+        )
 
         st.markdown("### 🏆 Ranked Candidates")
         st.dataframe(ranked_df, width="stretch")
