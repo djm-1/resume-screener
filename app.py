@@ -5,6 +5,8 @@ import pandas as pd
 import streamlit as st
 from multi_agents import build_workflow
 
+APP_BUILD_MARKER = "build-2026-05-17-fallback-sync"
+
 try:
     import streamlit_agraph as st_agraph
     from streamlit_agraph import Node, Edge, Config
@@ -325,6 +327,7 @@ def main():
     """, unsafe_allow_html=True)
 
     st.caption("Upload multiple resumes, score them against a job description, and compare candidates visually.")
+    st.caption(f"Build marker: `{APP_BUILD_MARKER}`")
 
     st.subheader("Scoring Weights")
     col1, col2 = st.columns(2)
