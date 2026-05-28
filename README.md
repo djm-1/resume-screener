@@ -1,6 +1,3 @@
-![Resume Screening Assistant](screenshot.png)
-
-
 # AI-Powered Resume Matching App
 
 This is a **Streamlit-based application** that leverages a powerful **AI multi-agent workflow** to intelligently **match resumes with job descriptions**. It uses **LangChain**, **LangGraph**, and **OpenAI** models.
@@ -71,20 +68,6 @@ Here’s an overview of the agents involved and their roles in the system:
   * A **match score (out of 100)**
   * The **final recommendation**
 
----
-
-## Technologies Used
-
-* **Python**
-* **Streamlit**
-* **LangChain + LangGraph**
-* **OpenAI API (via langchain-openai)**
-* **Hugging Face Instruct Embeddings**
-* **Chroma DB (vector store)**
-* **PyPDFLoader**
-* **BeautifulSoup + Requests**
-
----
 
 ## Visual Workflow
 
@@ -117,13 +100,5 @@ OPENAI_MODEL="gpt-4o-mini"
 ```
 
 `OPENAI_MODEL` is optional; default is `gpt-4o-mini`.
-
 ---
 
-## 📬 Contact
-
-**Haroon Sajid** – *AI Developer & Data Enthusiast*
-- 📧 **Email:** [haroonsajid016@gmail.com](mailto:haroonsajid016@gmail.com)
-- 🌐 **Website:** [haroonsajid.com](https://haroonsajid.com)
-
-> Feel free to reach out for suggestions, feedback, or collaboration!
